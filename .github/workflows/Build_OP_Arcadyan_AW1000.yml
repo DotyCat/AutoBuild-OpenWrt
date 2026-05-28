@@ -14,9 +14,9 @@ on:
           - false
   
 env:
-  REPO_URL: https://github.com/coolsnowwolf/lede
+  REPO_URL: https://github.com/immortalwrt/immortalwrt.git
   CONFIG_FILE: 'config/Arcadyan_AW1000.config' 
-  REPO_BRANCH: master
+  REPO_BRANCH: v25.12.0
   UPLOAD_BIN_DIR: true
   UPLOAD_FIRMWARE: true
   UPLOAD_RELEASE: true
@@ -43,7 +43,7 @@ jobs:
         DEBIAN_FRONTEND: noninteractive
       run: |
         sudo -E apt-get -y update
-        sudo -E apt-get -y install $(curl -fsSL https://raw.githubusercontent.com/LeeHe-gif/depend_ubuntu2204_openwrt/main/depend_ubuntu2204_openwrt)
+        sudo -E apt-get -y install $(curl -fsSL https://raw.githubusercontent.com/DotyCat/AutoBuild-OpenWrt/master/ubuntu2404-make-openwrt-depends)
         sudo timedatectl set-timezone "${TZ}"
         echo "status=success" >> ${GITHUB_OUTPUT}
         
@@ -55,9 +55,6 @@ jobs:
         cd openwrt
         cat <<EOF >> feeds.conf.default
         src-git modem https://github.com/FUjr/QModem.git;main
-        src-git istore https://github.com/linkease/istore;main
-        src-git nas https://github.com/linkease/nas-packages.git;master
-        src-git nas_luci https://github.com/linkease/nas-packages-luci.git;main
         src-git modem_app https://github.com/intannajwa/custom-app.git
         EOF
 
@@ -74,10 +71,6 @@ jobs:
       run: |
         ./scripts/feeds update -a
         ./scripts/feeds install -a
-        ./scripts/feeds install -a -f -p modem
-        ./scripts/feeds install -d y -p istore luci-app-store
-        ./scripts/feeds install -a -p nas
-        ./scripts/feeds install -a -p nas_luci
 
     - name: Configuration Customization - Build_Arcadyan_AW1000
       run: |
