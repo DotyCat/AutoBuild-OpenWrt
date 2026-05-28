@@ -53,10 +53,6 @@ jobs:
       run: |
         git clone --depth 1 $REPO_URL -b $REPO_BRANCH openwrt
         cd openwrt
-        cat <<EOF >> feeds.conf.default
-        src-git modem https://github.com/FUjr/QModem.git;main
-        src-git modem_app https://github.com/intannajwa/custom-app.git
-        EOF
 
     - name: Free up disk space
       run: |
@@ -66,12 +62,6 @@ jobs:
         ln -sfn /mnt/openwrt/staging_dir openwrt/staging_dir
         ln -sfn /mnt/openwrt/build_dir openwrt/build_dir
         
-    - name: Update & Install feeds
-      working-directory: ./openwrt
-      run: |
-        ./scripts/feeds update -a
-        ./scripts/feeds install -a
-
     - name: Configuration Customization - Build_Arcadyan_AW1000
       run: |
         if [[ ! -f "${CONFIG_FILE}" ]]; then
