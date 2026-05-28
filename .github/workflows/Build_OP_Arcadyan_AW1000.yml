@@ -1,143 +1,182 @@
 name: Build_Arcadyan_AW1000
 
-on: 
+on:
   repository_dispatch:
   workflow_dispatch:
     inputs:
       log_switch:
-        description: "Compile log switch"
+        description: "Enable full compile log"
         required: false
-        default: "false"
+        default: false
         type: boolean
-        options:
-          - true
-          - false
-  
+
+permissions:
+  contents: write
+  actions: write
+
 env:
   REPO_URL: https://github.com/immortalwrt/immortalwrt.git
-  CONFIG_FILE: 'config/Arcadyan_AW1000.config' 
-  REPO_BRANCH: v25.12.0
-  UPLOAD_BIN_DIR: true
+  REPO_BRANCH: v24.10.6
+  CONFIG_FILE: config/Arcadyan_AW1000.config
   UPLOAD_FIRMWARE: true
   UPLOAD_RELEASE: true
+  UPLOAD_BIN_DIR: true
   TZ: Asia/Kuala_Lumpur
-  
+
 jobs:
   build:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
 
     steps:
-    - name: Checkout
-      uses: actions/checkout@v3  
+      - name: Checkout
+        uses: actions/checkout@v4
 
-    - name: Free disk space
-      uses: jlumbroso/free-disk-space@main
-      with:
-        tool-cache: false
-        android: true
-        dotnet: true
+      - name: Free disk space
+        run: |
+          sudo rm -rf /usr/share/dotnet
+          sudo rm -rf /usr/local/lib/android
+          sudo rm -rf /opt/ghc
+          sudo rm -rf /opt/hostedtoolcache/CodeQL
+          docker system prune -af || true
+          df -h
 
-    - name: Initialization environment
-      id: init
-      env:
-        DEBIAN_FRONTEND: noninteractive
-      run: |
-        sudo -E apt-get -y update
-        sudo -E apt-get -y install $(curl -fsSL https://raw.githubusercontent.com/DotyCat/AutoBuild-OpenWrt/master/ubuntu2404-make-openwrt-depends)
-        sudo timedatectl set-timezone "${TZ}"
-        echo "status=success" >> ${GITHUB_OUTPUT}
-        
-    - name: Clone source code
-      id: codes
-      if: ${{ steps.init.outputs.status }} == 'success' && !cancelled()
-      run: |
-        git clone --depth 1 $REPO_URL -b $REPO_BRANCH openwrt
-        cd openwrt
+      - name: Initialization environment
+        id: init
+        env:
+          DEBIAN_FRONTEND: noninteractive
+        run: |
+          sudo -E apt-get update
+          sudo -E apt-get install -y $(curl -fsSL https://raw.githubusercontent.com/DotyCat/AutoBuild-OpenWrt/master/ubuntu2404-make-openwrt-depends)
+          sudo timedatectl set-timezone "${TZ}"
+          echo "status=success" >> "$GITHUB_OUTPUT"
 
-    - name: Free up disk space
-      run: |
-        sudo mkdir -p -m 777 /mnt/openwrt/{dl,staging_dir,build_dir}
-        sudo chown -R $USER:$GROUPS /mnt/openwrt
-        ln -sfn /mnt/openwrt/dl openwrt/dl
-        ln -sfn /mnt/openwrt/staging_dir openwrt/staging_dir
-        ln -sfn /mnt/openwrt/build_dir openwrt/build_dir
-        
-    - name: Configuration Customization - Build_Arcadyan_AW1000
-      run: |
-        if [[ ! -f "${CONFIG_FILE}" ]]; then
-          echo "❌ Error: Config file ${CONFIG_FILE} does not exist"
-          ls -l config/ || true
-          exit 1
-        fi
-        chmod +x ./customize.sh && ./customize.sh
-        [[ -d "files" ]] && mv -f files openwrt/files
-        cp -fv "${CONFIG_FILE}" openwrt/.config
-        cd openwrt && make defconfig
-        
-    - name: Download package
-      id: package
-      run: |
-        cd openwrt/
-        make download -j$(nproc) || { echo "❌ Download failed"; exit 1; }
-        find dl -size -1024c -delete  
+      - name: Clone source code
+        id: codes
+        if: ${{ steps.init.outputs.status == 'success' && !cancelled() }}
+        run: |
+          git clone --depth 1 "$REPO_URL" -b "$REPO_BRANCH" openwrt
 
-    - name: Compile the OpenWrt
-      id: compile
-      run: |
-        cd openwrt/
-        if [[ "${{ inputs.log_switch }}" == "yes" ]]; then
+      - name: Create build directories
+        run: |
+          sudo mkdir -p -m 777 /mnt/openwrt/{dl,staging_dir,build_dir}
+          sudo chown -R $USER:$USER /mnt/openwrt
+
+      - name: Link build directories
+        run: |
+          rm -rf openwrt/dl
+          rm -rf openwrt/staging_dir
+          rm -rf openwrt/build_dir
+
+          ln -s /mnt/openwrt/dl openwrt/dl
+          ln -s /mnt/openwrt/staging_dir openwrt/staging_dir
+          ln -s /mnt/openwrt/build_dir openwrt/build_dir
+
+      - name: Configuration Customization
+        run: |
+          if [ ! -f "${CONFIG_FILE}" ]; then
+            echo "Config file not found: ${CONFIG_FILE}"
+            exit 1
+          fi
+
+          if [ -f "./customize.sh" ]; then
+            chmod +x customize.sh
+            ./customize.sh
+          fi
+
+          if [ -d "./files" ]; then
+            mv files openwrt/files
+          fi
+
+          cp -f "${CONFIG_FILE}" openwrt/.config
+
+          cd openwrt
+          make defconfig
+
+      - name: Download packages
+        id: package
+        run: |
+          cd openwrt
+
+          make download -j$(nproc)
+
+          find dl -type f -size -1024c -delete
+
+      - name: Compile OpenWrt
+        id: compile
+        run: |
+          cd openwrt
+
+          if [ "${{ inputs.log_switch }}" = "true" ]; then
             make -j1 V=s
-        else
-            make -j$(nproc)
-        fi
-        grep '^CONFIG_TARGET.*DEVICE.*=y' .config | sed -r 's/.*DEVICE_(.*)=y/\1/' > DEVICE_NAME
-        [ -s DEVICE_NAME ] && echo "DEVICE_NAME=_$(cat DEVICE_NAME)" >> $GITHUB_ENV
-        echo "FILE_DATE=_$(date +"%Y%m%d%H%M")" >> $GITHUB_ENV
-        echo "status=success" >> ${GITHUB_OUTPUT}
+          else
+            make -j$(nproc) || make -j1 V=s
+          fi
 
-    - name: Organize files
-      id: organize
-      if: env.UPLOAD_FIRMWARE == 'true' && steps.compile.outputs.status == 'success'
-      run: |
-        cd openwrt/bin/targets/*/* 
-        rm -rf packages
-        echo "FIRMWARE=$PWD" >> $GITHUB_ENV
-        echo "status=success" >> ${GITHUB_OUTPUT}
+          grep '^CONFIG_TARGET.*DEVICE.*=y' .config | \
+          sed -r 's/.*DEVICE_(.*)=y/\1/' > DEVICE_NAME || true
 
-    - name: Upload firmware directory
-      uses: actions/upload-artifact@main
-      if: steps.organize.outputs.status == 'success' && !cancelled()
-      with:
-        name: OpenWrt_firmware${{ env.DEVICE_NAME }}${{ env.FILE_DATE }}
-        path: ${{ env.FIRMWARE }}/*
+          if [ -s DEVICE_NAME ]; then
+            echo "DEVICE_NAME=_$(cat DEVICE_NAME)" >> $GITHUB_ENV
+          else
+            echo "DEVICE_NAME=_AW1000" >> $GITHUB_ENV
+          fi
 
-    - name: Generate release info
-      id : release
-      if: env.UPLOAD_RELEASE == 'true' && steps.organize.outputs.status == 'success'
-      run: |
-        echo "release_tag=$(date +"%Y.%m.%d-%H%M")" >> $GITHUB_OUTPUT
-        cat <<EOF > release.txt
-        🚀 OpenWrt Firmware Build Results
-        ----------------------
-        Device: Arcadyan_AW1000
-        Time: $(date +"%Y-%m-%d %H:%M")
-        Source: $REPO_URL
-        Branch: $REPO_BRANCH
-        EOF
+          echo "FILE_DATE=_$(date +'%Y%m%d%H%M')" >> $GITHUB_ENV
+          echo "status=success" >> "$GITHUB_OUTPUT"
 
-    - name: Upload firmware to release
-      uses: softprops/action-gh-release@v1
-      if: steps.compile.outputs.status == 'success' && !cancelled()
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      with:
-        tag_name: ${{ steps.release.outputs.release_tag }}
-        body_path: release.txt
-        files: ${{ env.FIRMWARE }}/*
+      - name: Organize firmware
+        id: organize
+        if: ${{ steps.compile.outputs.status == 'success' }}
+        run: |
+          cd openwrt/bin/targets/*/*
 
-    - name: Cleanup workflow runs
-      uses: LeeHe-gif/delete-workflow-runs@main
-      with:
-        retain_days: 1
-        keep_minimum_runs: 3
-        token: ${{ secrets.GITHUB_TOKEN }}
+          rm -rf packages
+
+          echo "FIRMWARE=$PWD" >> $GITHUB_ENV
+          echo "status=success" >> "$GITHUB_OUTPUT"
+
+      - name: Create full bin archive
+        if: ${{ env.UPLOAD_BIN_DIR == 'true' && steps.compile.outputs.status == 'success' }}
+        run: |
+          tar -czf OpenWrt_bin.tar.gz -C openwrt bin
+
+      - name: Upload firmware artifact
+        uses: actions/upload-artifact@v4
+        if: ${{ steps.organize.outputs.status == 'success' }}
+        with:
+          name: Firmware${{ env.DEVICE_NAME }}${{ env.FILE_DATE }}
+          path: ${{ env.FIRMWARE }}/*
+          retention-days: 7
+
+      - name: Upload full bin artifact
+        uses: actions/upload-artifact@v4
+        if: ${{ env.UPLOAD_BIN_DIR == 'true' && steps.compile.outputs.status == 'success' }}
+        with:
+          name: Full_BIN${{ env.DEVICE_NAME }}${{ env.FILE_DATE }}
+          path: OpenWrt_bin.tar.gz
+          retention-days: 7
+
+      - name: Generate release info
+        id: release
+        if: ${{ env.UPLOAD_RELEASE == 'true' && steps.organize.outputs.status == 'success' }}
+        run: |
+          echo "release_tag=$(date +'%Y.%m.%d-%H%M')" >> "$GITHUB_OUTPUT"
+
+          cat > release.txt << EOF
+          🚀 OpenWrt Firmware Build
+
+          Device : Arcadyan AW1000
+          Source : ${REPO_URL}
+          Branch : ${REPO_BRANCH}
+          Build  : $(date '+%Y-%m-%d %H:%M')
+          EOF
+
+      - name: Upload firmware to GitHub Release
+        uses: softprops/action-gh-release@v2
+        if: ${{ env.UPLOAD_RELEASE == 'true' && steps.compile.outputs.status == 'success' }}
+        with:
+          tag_name: ${{ steps.release.outputs.release_tag }}
+          body_path: release.txt
+          files: |
+            ${{ env.FIRMWARE }}/*
+            OpenWrt_bin.tar.gz
