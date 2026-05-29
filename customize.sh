@@ -34,6 +34,9 @@ rm -rf feeds/packages/net/geoview
 rm -rf feeds/packages/net/shadow-tls
 
 git clone --depth=1 https://github.com/sbwml/openwrt_helloworld.git package/openwrt_helloworld
+
+rm -rf package/openwrt_helloworld/geoview
+
 git clone --depth=1 https://github.com/DotyCat/luci-theme-argon.git feeds/luci/themes/luci-theme-argon
 git clone --depth=1 https://github.com/DotyCat/luci-app-argon-config.git feeds/luci/applications/luci-app-argon-config
 
@@ -42,6 +45,8 @@ git clone --depth=1 https://github.com/DotyCat/luci-app-modeminfo.git package/lu
 git clone --depth=1 https://github.com/DotyCat/luci-app-netstat.git package/luci-app-netstat
 git clone --depth=1 https://github.com/DotyCat/luci-app-xraycustom.git package/luci-app-xraycustom
 git clone --depth=1 https://github.com/DotyCat/luci-app-aw1k-led.git package/luci-app-aw1k-led
+
+git clone --depth=1 https://github.com/DotyCat/geoview.git package/openwrt_helloworld/geoview
 
 mkdir -p package/luci-app-passwall/luci-app-passwall/root/usr/share/passwall/rules
 
