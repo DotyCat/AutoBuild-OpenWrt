@@ -60,7 +60,7 @@ jobs:
           DEBIAN_FRONTEND: noninteractive
         run: |
           sudo -E apt-get update
-          sudo -E apt-get install -y $(curl -fsSL https://raw.githubusercontent.com/DotyCat/AutoBuild-OpenWrt/master/ubuntu2204-make-openwrt-depends)
+          sudo -E apt-get install -y $(curl -s https://build-scripts.immortalwrt.org/init_build_environment.sh)
           sudo timedatectl set-timezone "${TZ}"
           echo "status=success" >> "$GITHUB_OUTPUT"
 
