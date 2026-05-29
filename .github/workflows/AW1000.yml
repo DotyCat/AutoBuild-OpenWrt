@@ -4,6 +4,20 @@ on:
   repository_dispatch:
   workflow_dispatch:
     inputs:
+      version:
+        description: "ImmortalWrt Version"
+        required: true
+        default: "v24.10.6"
+        type: choice
+        options:
+          - v24.10.0
+          - v24.10.1
+          - v24.10.2
+          - v24.10.3
+          - v24.10.4
+          - v24.10.5
+          - v24.10.6
+
       log_switch:
         description: "Enable full compile log"
         required: false
@@ -16,7 +30,7 @@ permissions:
 
 env:
   REPO_URL: https://github.com/immortalwrt/immortalwrt.git
-  REPO_BRANCH: v24.10.0
+  REPO_BRANCH: ${{ github.event.inputs.version || 'v24.10.6' }}
   CONFIG_FILE: config/AW1000.config
   UPLOAD_FIRMWARE: true
   UPLOAD_RELEASE: true
@@ -46,7 +60,7 @@ jobs:
           DEBIAN_FRONTEND: noninteractive
         run: |
           sudo -E apt-get update
-          sudo -E apt-get install -y $(curl -fsSL https://raw.githubusercontent.com/DotyCat/AutoBuild-OpenWrt/master/ubuntu2404-make-openwrt-depends)
+          sudo -E apt-get install -y $(curl -fsSL https://raw.githubusercontent.com/DotyCat/AutoBuild-OpenWrt/master/ubuntu2204-make-openwrt-depends)
           sudo timedatectl set-timezone "${TZ}"
           echo "status=success" >> "$GITHUB_OUTPUT"
 
@@ -54,6 +68,7 @@ jobs:
         id: codes
         if: ${{ steps.init.outputs.status == 'success' && !cancelled() }}
         run: |
+          echo "Building ${REPO_BRANCH}"
           git clone --depth 1 "$REPO_URL" -b "$REPO_BRANCH" openwrt
 
       - name: Create build directories
