@@ -77,7 +77,6 @@ jobs:
 
       - name: Clone source code
         id: codes
-        if: ${{ steps.init.outputs.status == 'success' && !cancelled() }}
         run: |
           echo "Building ${REPO_BRANCH}"
           git clone --depth 1 "$REPO_URL" -b "$REPO_BRANCH" openwrt
@@ -93,9 +92,9 @@ jobs:
           rm -rf openwrt/staging_dir
           rm -rf openwrt/build_dir
 
-          ln -s /mnt/openwrt/dl openwrt/dl
-          ln -s /mnt/openwrt/staging_dir openwrt/staging_dir
-          ln -s /mnt/openwrt/build_dir openwrt/build_dir
+          ln -sf /mnt/openwrt/dl openwrt/dl
+          ln -sf /mnt/openwrt/staging_dir openwrt/staging_dir
+          ln -sf /mnt/openwrt/build_dir openwrt/build_dir
 
       - name: Configuration Customization
         run: |
@@ -116,7 +115,14 @@ jobs:
           cp -f "${CONFIG_FILE}" openwrt/.config
 
           cd openwrt
+
+          sed -i 's/[[:space:]]*$//' .config
+
           make defconfig
+
+          echo "========== SELECTED DEVICE =========="
+          grep '^CONFIG_TARGET_DEVICE_.*=y' .config || true
+          echo "===================================="
 
       - name: Download packages
         id: package
@@ -130,31 +136,39 @@ jobs:
         run: |
           cd openwrt
 
-          if [ "${{ inputs.log_switch }}" = "true" ]; then
+          if [ "${{ github.event.inputs.log_switch }}" = "true" ]; then
             time make -j$(nproc) || time make -j1 V=s
           else
             time make -j$(nproc)
           fi
 
-          grep '^CONFIG_TARGET.*DEVICE.*=y' .config | \
-          sed -r 's/.*DEVICE_(.*)=y/\1/' > DEVICE_NAME || true
-
-          if [ -s DEVICE_NAME ]; then
-            echo "DEVICE_NAME=_$(cat DEVICE_NAME)" >> $GITHUB_ENV
-          else
-            echo "DEVICE_NAME=_AW1000" >> $GITHUB_ENV
-          fi
+          echo "========== GENERATED FILES =========="
+          find bin/targets -type f | sort
+          echo "====================================="
 
           echo "FILE_DATE=_$(date +'%Y%m%d%H%M')" >> $GITHUB_ENV
+          echo "DEVICE_NAME=_AW1000" >> $GITHUB_ENV
           echo "status=success" >> "$GITHUB_OUTPUT"
 
       - name: Organize firmware
         id: organize
         if: ${{ steps.compile.outputs.status == 'success' }}
         run: |
-          cd openwrt/bin/targets/*/*
+          mkdir -p /tmp/firmware-aw1000
+
+          cd openwrt/bin/targets/qualcommax/ipq807x
+
           rm -rf packages
-          echo "FIRMWARE=$PWD" >> $GITHUB_ENV
+
+          cp -af *arcadyan_aw1000* /tmp/firmware-aw1000/ 2>/dev/null || true
+          cp -af sha256sums /tmp/firmware-aw1000/ 2>/dev/null || true
+          cp -af profiles.json /tmp/firmware-aw1000/ 2>/dev/null || true
+
+          echo "========== AW1000 FILES =========="
+          ls -lah /tmp/firmware-aw1000
+          echo "=================================="
+
+          echo "FIRMWARE=/tmp/firmware-aw1000" >> $GITHUB_ENV
           echo "status=success" >> "$GITHUB_OUTPUT"
 
       - name: Create full bin archive
@@ -166,7 +180,7 @@ jobs:
         uses: actions/upload-artifact@v4
         if: ${{ steps.organize.outputs.status == 'success' }}
         with:
-          name: Firmware${{ env.DEVICE_NAME }}${{ env.FILE_DATE }}
+          name: Firmware_AW1000${{ env.FILE_DATE }}
           path: ${{ env.FIRMWARE }}/*
           retention-days: 7
 
@@ -174,7 +188,7 @@ jobs:
         uses: actions/upload-artifact@v4
         if: ${{ env.UPLOAD_BIN_DIR == 'true' && steps.compile.outputs.status == 'success' }}
         with:
-          name: Full_BIN${{ env.DEVICE_NAME }}${{ env.FILE_DATE }}
+          name: Full_BIN_AW1000${{ env.FILE_DATE }}
           path: OpenWrt_bin.tar.gz
           retention-days: 7
 
@@ -185,12 +199,11 @@ jobs:
           echo "release_tag=$(date +'%Y.%m.%d-%H%M')" >> "$GITHUB_OUTPUT"
 
           cat > release.txt << EOF
-          🚀 OpenWrt Firmware Build
+          🚀 AW1000 Firmware Build
 
           Device : Arcadyan AW1000
           Source : ${REPO_URL}
           Branch : ${REPO_BRANCH}
-          Runner : ${{ github.event.inputs.runner_os || 'ubuntu-24.04' }}
           Build  : $(date '+%Y-%m-%d %H:%M')
           EOF
 
