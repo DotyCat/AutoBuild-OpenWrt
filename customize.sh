@@ -40,6 +40,7 @@ git clone --depth=1 https://github.com/vernesong/OpenClash package/luci-app-open
 
 git clone --depth=1 https://github.com/DotyCat/luci-theme-argon.git feeds/luci/themes/luci-theme-argon
 git clone --depth=1 https://github.com/DotyCat/luci-app-argon-config.git feeds/luci/applications/luci-app-argon-config
+
 git clone --depth=1 https://github.com/DotyCat/QModem.git package/qmodem
 git clone --depth=1 https://github.com/DotyCat/luci-app-modeminfo.git package/luci-app-modeminfo
 git clone --depth=1 https://github.com/DotyCat/luci-app-netstat.git package/luci-app-netstat
