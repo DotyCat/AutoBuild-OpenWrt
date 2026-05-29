@@ -109,7 +109,7 @@ jobs:
           if [ "${{ inputs.log_switch }}" = "true" ]; then
             make -j1 V=s
           else
-            make defconfig download clean world -j$(nproc) || make -j1 V=s
+            time make -j$(nproc)
           fi
 
           grep '^CONFIG_TARGET.*DEVICE.*=y' .config | \
