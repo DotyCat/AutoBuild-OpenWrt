@@ -16,7 +16,7 @@ permissions:
 
 env:
   REPO_URL: https://github.com/immortalwrt/immortalwrt.git
-  REPO_BRANCH: v24.10.4
+  REPO_BRANCH: v24.10.0
   CONFIG_FILE: config/AW1000.config
   UPLOAD_FIRMWARE: true
   UPLOAD_RELEASE: true
