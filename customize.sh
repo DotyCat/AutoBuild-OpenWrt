@@ -33,11 +33,7 @@ rm -rf feeds/packages/net/xray-plugin
 rm -rf feeds/packages/net/geoview
 rm -rf feeds/packages/net/shadow-tls
 
-git clone --depth=1 https://github.com/Openwrt-Passwall/openwrt-passwall-packages package/passwall-packages
-git clone --depth=1 https://github.com/Openwrt-Passwall/openwrt-passwall package/luci-app-passwall
-git clone --depth=1 https://github.com/Openwrt-Passwall/openwrt-passwall2 package/luci-app-passwall2
-git clone --depth=1 https://github.com/vernesong/OpenClash package/luci-app-openclash
-
+git clone --depth=1 https://github.com/sbwml/openwrt_helloworld.git package/openwrt_helloworld
 git clone --depth=1 https://github.com/DotyCat/luci-theme-argon.git feeds/luci/themes/luci-theme-argon
 git clone --depth=1 https://github.com/DotyCat/luci-app-argon-config.git feeds/luci/applications/luci-app-argon-config
 
