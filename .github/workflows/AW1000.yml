@@ -47,6 +47,7 @@ env:
   UPLOAD_RELEASE: true
   UPLOAD_BIN_DIR: true
   TZ: Asia/Kuala_Lumpur
+  EXPECTED_DEVICE: arcadyan_aw1000
 
 jobs:
   build:
@@ -119,13 +120,34 @@ jobs:
           sed -i 's/[[:space:]]*$//' .config
 
           make defconfig
-     - name: Device Ceck
-       id: device
-       run: |
-        cd openwrt
+
+      - name: Verify AW1000 Target
+        id: device_check
+        run: |
+          cd openwrt
+
           echo "========== SELECTED DEVICE =========="
           grep '^CONFIG_TARGET_DEVICE_.*=y' .config || true
           echo "===================================="
+
+          DEVICE="$(grep '^CONFIG_TARGET_DEVICE_.*=y' .config | sed 's/CONFIG_TARGET_DEVICE_//;s/=y//' || true)"
+
+          echo "Detected device: ${DEVICE}"
+
+          if [ -z "${DEVICE}" ]; then
+            echo "ERROR: No target device detected in .config"
+            exit 1
+          fi
+
+          if ! echo "${DEVICE}" | grep -q "${EXPECTED_DEVICE}"; then
+            echo ""
+            echo "ERROR: Wrong target detected!"
+            echo "Expected: ${EXPECTED_DEVICE}"
+            echo "Detected: ${DEVICE}"
+            exit 1
+          fi
+
+          echo "AW1000 target verified."
 
       - name: Download packages
         id: package
@@ -153,6 +175,19 @@ jobs:
           echo "DEVICE_NAME=_AW1000" >> $GITHUB_ENV
           echo "status=success" >> "$GITHUB_OUTPUT"
 
+      - name: Verify AW1000 Firmware Exists
+        run: |
+          cd openwrt/bin/targets/qualcommax/ipq807x
+
+          echo "========== AW1000 IMAGE CHECK =========="
+          ls -lah *arcadyan_aw1000* || true
+          echo "======================================="
+
+          if ! ls *arcadyan_aw1000* >/dev/null 2>&1; then
+            echo "ERROR: AW1000 firmware not found!"
+            exit 1
+          fi
+
       - name: Organize firmware
         id: organize
         if: ${{ steps.compile.outputs.status == 'success' }}
@@ -163,7 +198,7 @@ jobs:
 
           rm -rf packages
 
-          cp -af *arcadyan_aw1000* /tmp/firmware-aw1000/ 2>/dev/null || true
+          cp -af *arcadyan_aw1000* /tmp/firmware-aw1000/
           cp -af sha256sums /tmp/firmware-aw1000/ 2>/dev/null || true
           cp -af profiles.json /tmp/firmware-aw1000/ 2>/dev/null || true
 
@@ -207,6 +242,7 @@ jobs:
           Device : Arcadyan AW1000
           Source : ${REPO_URL}
           Branch : ${REPO_BRANCH}
+          Runner : ${{ github.event.inputs.runner_os || 'ubuntu-24.04' }}
           Build  : $(date '+%Y-%m-%d %H:%M')
           EOF
 
