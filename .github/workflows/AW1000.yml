@@ -17,17 +17,10 @@ on:
       version:
         description: "ImmortalWrt Version"
         required: true
-        default: "v24.10.6"
+        default: "v24.10.4"
         type: choice
         options:
-          - v24.10.0
-          - v24.10.1
-          - v24.10.2
-          - v24.10.3
           - v24.10.4
-          - v24.10.5
-          - v24.10.6
-          - v25.12.0
 
       log_switch:
         description: "Enable full compile log"
@@ -40,8 +33,8 @@ permissions:
   actions: write
 
 env:
-  REPO_URL: https://github.com/immortalwrt/immortalwrt.git
-  REPO_BRANCH: ${{ github.event.inputs.version || 'v24.10.6' }}
+  REPO_URL: https://github.com/DotyCat/immortalwrt.git
+  REPO_BRANCH: ${{ github.event.inputs.version || 'v24.10.4' }}
   CONFIG_FILE: config/AW1000.config
   UPLOAD_FIRMWARE: true
   UPLOAD_RELEASE: true
