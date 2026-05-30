@@ -12,7 +12,6 @@ rm -rf feeds/luci/themes/luci-theme-argon
 rm -rf feeds/luci/applications/luci-app-passwall
 rm -rf feeds/luci/applications/luci-app-openclash
 
-rm -rf feeds/packages/net/xray-core
 rm -rf feeds/packages/net/v2ray-geodata
 rm -rf feeds/packages/net/chinadns-ng
 rm -rf feeds/packages/net/dns2socks
