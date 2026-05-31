@@ -10,17 +10,20 @@ on:
         default: "ubuntu-24.04"
         type: choice
         options:
-          - ubuntu-22.04
-          - ubuntu-24.04
-          - ubuntu-latest
+          - "ubuntu-22.04"
+          - "ubuntu-24.04"
+          - "ubuntu-latest"
 
       version:
-        description: "ImmortalWrt Version"
+        description: "Lienol OpenWrt Branch"
         required: true
-        default: "v24.10.4"
+        default: "24.10"
         type: choice
         options:
-          - 24.10
+          - "25.12"
+          - "24.10"
+          - "23.05"
+          - "19.07"
 
       log_switch:
         description: "Enable full compile log"
@@ -34,7 +37,7 @@ permissions:
 
 env:
   REPO_URL: https://github.com/Lienol/openwrt.git
-  REPO_BRANCH: ${{ github.event.inputs.version || 'v24.10.4' }}
+  REPO_BRANCH: "${{ github.event.inputs.version || '24.10' }}"
   CONFIG_FILE: config/AW1000.config
   UPLOAD_FIRMWARE: true
   UPLOAD_RELEASE: true
@@ -50,6 +53,13 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: Show build info
+        run: |
+          echo "Runner OS: ${{ github.event.inputs.runner_os || 'ubuntu-24.04' }}"
+          echo "Selected branch: '${{ github.event.inputs.version || '24.10' }}'"
+          echo "REPO_BRANCH='${REPO_BRANCH}'"
+          echo "REPO_URL='${REPO_URL}'"
+
       - name: Free disk space
         run: |
           sudo rm -rf /usr/share/dotnet
@@ -60,23 +70,43 @@ jobs:
           df -h
 
       - name: Initialization environment
-        id: init
         env:
           DEBIAN_FRONTEND: noninteractive
         run: |
           sudo -E apt-get update
-          sudo bash -c 'bash <(curl -s https://build-scripts.immortalwrt.org/init_build_environment.sh)'
+          sudo bash -c 'bash <(curl -fsSL https://build-scripts.immortalwrt.org/init_build_environment.sh)'
           sudo timedatectl set-timezone "${TZ}"
-          echo "status=success" >> "$GITHUB_OUTPUT"
+
+      - name: Verify branch exists
+        run: |
+          echo "Checking branch: ${REPO_BRANCH}"
+
+          if ! git ls-remote --heads "${REPO_URL}" "${REPO_BRANCH}" | grep -q "refs/heads/${REPO_BRANCH}$"; then
+            echo "ERROR: Branch '${REPO_BRANCH}' not found in ${REPO_URL}"
+            echo ""
+            echo "Available branches:"
+            git ls-remote --heads "${REPO_URL}" | awk -F'/' '{print $NF}'
+            exit 1
+          fi
+
+          echo "Branch '${REPO_BRANCH}' exists."
 
       - name: Clone source code
         run: |
           echo "Building ${REPO_BRANCH}"
-          git clone --depth 1 "$REPO_URL" -b "$REPO_BRANCH" openwrt
+          git clone --depth 1 --branch "${REPO_BRANCH}" "${REPO_URL}" openwrt
+
+      - name: Verify clone
+        run: |
+          cd openwrt
+          git branch --show-current
+          git log -1 --oneline
 
       - name: Create build directories
         run: |
-          sudo mkdir -p -m 777 /mnt/openwrt/{dl,staging_dir,build_dir}
+          sudo mkdir -p -m 777 /mnt/openwrt/dl
+          sudo mkdir -p -m 777 /mnt/openwrt/staging_dir
+          sudo mkdir -p -m 777 /mnt/openwrt/build_dir
           sudo chown -R $USER:$USER /mnt/openwrt
 
       - name: Link build directories
@@ -102,6 +132,7 @@ jobs:
           fi
 
           if [ -d "./files" ]; then
+            rm -rf openwrt/files
             mv files openwrt/files
           fi
 
@@ -137,6 +168,17 @@ jobs:
             exit 1
           fi
 
+      - name: Update feeds
+        run: |
+          cd openwrt
+          ./scripts/feeds update -a
+          ./scripts/feeds install -a
+
+      - name: Refresh config
+        run: |
+          cd openwrt
+          make defconfig
+
       - name: Download packages
         run: |
           cd openwrt
@@ -158,8 +200,8 @@ jobs:
           find bin/targets -type f | sort
           echo "====================================="
 
-          echo "FILE_DATE=_$(date +'%Y%m%d%H%M')" >> $GITHUB_ENV
-          echo "DEVICE_NAME=_AW1000" >> $GITHUB_ENV
+          echo "FILE_DATE=_$(date +'%Y%m%d%H%M')" >> "$GITHUB_ENV"
+          echo "DEVICE_NAME=_AW1000" >> "$GITHUB_ENV"
           echo "status=success" >> "$GITHUB_OUTPUT"
 
       - name: Verify AW1000 Firmware Exists
@@ -193,13 +235,14 @@ jobs:
           ls -lah /tmp/firmware-aw1000
           echo "=================================="
 
-          echo "FIRMWARE=/tmp/firmware-aw1000" >> $GITHUB_ENV
+          echo "FIRMWARE=/tmp/firmware-aw1000" >> "$GITHUB_ENV"
           echo "status=success" >> "$GITHUB_OUTPUT"
 
       - name: Create full bin archive
         if: ${{ env.UPLOAD_BIN_DIR == 'true' && steps.compile.outputs.status == 'success' }}
         run: |
           tar -czf OpenWrt_bin.tar.gz -C openwrt bin
+          ls -lh OpenWrt_bin.tar.gz
 
       - name: Upload firmware artifact
         uses: actions/upload-artifact@v4
@@ -221,7 +264,7 @@ jobs:
         id: release
         if: ${{ env.UPLOAD_RELEASE == 'true' && steps.organize.outputs.status == 'success' }}
         run: |
-          echo "release_tag=$(date +'%Y.%m.%d-%H%M')" >> "$GITHUB_OUTPUT"
+          echo "release_tag=AW1000-${REPO_BRANCH}-$(date +'%Y.%m.%d-%H%M')" >> "$GITHUB_OUTPUT"
 
           cat > release.txt << EOF
           🚀 AW1000 Firmware Build
@@ -235,7 +278,7 @@ jobs:
 
       - name: Upload firmware to GitHub Release
         uses: softprops/action-gh-release@v2
-        if: ${{ env.UPLOAD_RELEASE == 'true' && steps.compile.outputs.status == 'success' }}
+        if: ${{ env.UPLOAD_RELEASE == 'true' && steps.organize.outputs.status == 'success' }}
         with:
           tag_name: ${{ steps.release.outputs.release_tag }}
           body_path: release.txt
