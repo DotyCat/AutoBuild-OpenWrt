@@ -25,18 +25,10 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y \
-            ack antlr3 asciidoc autoconf automake autopoint binutils bison \
-            build-essential bzip2 ccache clang cmake cpio curl device-tree-compiler \
-            ecj fastjar flex g++ gawk gcc gcc-multilib g++-multilib gettext \
-            git gperf haveged help2man intltool libelf-dev libglib2.0-dev \
-            libgmp3-dev libltdl-dev libmpc-dev libmpfr-dev libncurses-dev \
-            libpython3-dev libreadline-dev libssl-dev libtool libyaml-dev \
-            lrzsz mkisofs msmtp nano ninja-build p7zip p7zip-full patch \
-            pkgconf python3 python3-dev python3-pip python3-ply python3-setuptools \
-            qemu-utils re2c rsync scons squashfs-tools subversion swig texinfo \
-            uglifyjs unzip upx-ucl vim wget xmlto xxd zlib1g-dev zstd \
-            bc file liblzma-dev meson mold mtd-utils pbzip2 pigz pkg-config \
-            time u-boot-tools xsltproc
+            build-essential clang flex bison g++ gawk gcc-multilib g++-multilib \
+            gettext git libncurses-dev libssl-dev python3 python3-setuptools \
+            rsync unzip zlib1g-dev file wget curl tar zstd patch libelf-dev \
+            bc time perl
 
       - name: Download OpenWrt SDK 24.10.6
         run: |
@@ -44,14 +36,15 @@ jobs:
           tar --zstd -xf sdk.tar.zst
           mv openwrt-sdk-* openwrt-sdk
 
-      - name: Configure Git
-        run: |
-          git config --global advice.detachedHead false
-
       - name: Clone Private Packages
         env:
           TOKEN: ${{ secrets.PRIVATE_REPO_TOKEN }}
         run: |
+          if [ -z "$TOKEN" ]; then
+            echo "PRIVATE_REPO_TOKEN is empty!"
+            exit 1
+          fi
+
           cd openwrt-sdk/package
 
           git clone --depth=1 https://x-access-token:${TOKEN}@github.com/DotyCat/luci-app-modeminfo.git
@@ -59,9 +52,10 @@ jobs:
           git clone --depth=1 https://x-access-token:${TOKEN}@github.com/DotyCat/luci-app-projectx.git
           git clone --depth=1 https://x-access-token:${TOKEN}@github.com/DotyCat/luci-app-aw1k-led.git
 
-      - name: Update Feeds
+      - name: Install Required Feeds Only
         run: |
           cd openwrt-sdk
+
           ./scripts/feeds update -a
           ./scripts/feeds install -a
 
@@ -70,42 +64,36 @@ jobs:
           cd openwrt-sdk
 
           cat > .config <<EOF
-          CONFIG_ALL_NONSHARED=y
+          CONFIG_PACKAGE_luci-app-modeminfo=m
+          CONFIG_PACKAGE_luci-app-netstat=m
+          CONFIG_PACKAGE_luci-app-projectx=m
+          CONFIG_PACKAGE_luci-app-aw1k-led=m
           EOF
 
           make defconfig
 
-      - name: Build luci-app-modeminfo
+      - name: Build Packages
         run: |
           cd openwrt-sdk
+
           make package/luci-app-modeminfo/compile -j$(nproc) || make package/luci-app-modeminfo/compile V=s -j1
-
-      - name: Build luci-app-netstat
-        run: |
-          cd openwrt-sdk
           make package/luci-app-netstat/compile -j$(nproc) || make package/luci-app-netstat/compile V=s -j1
-
-      - name: Build luci-app-projectx
-        run: |
-          cd openwrt-sdk
           make package/luci-app-projectx/compile -j$(nproc) || make package/luci-app-projectx/compile V=s -j1
-
-      - name: Build luci-app-aw1k-led
-        run: |
-          cd openwrt-sdk
           make package/luci-app-aw1k-led/compile -j$(nproc) || make package/luci-app-aw1k-led/compile V=s -j1
 
-      - name: Collect IPK Files
+      - name: Collect Custom IPK Files Only
         run: |
           mkdir -p output
 
-          find openwrt-sdk/bin/packages \
-            -type f \
-            -name "*.ipk" \
-            -exec cp -f {} output/ \;
+          find openwrt-sdk/bin/packages -type f \( \
+            -name "luci-app-modeminfo*.ipk" -o \
+            -name "luci-app-netstat*.ipk" -o \
+            -name "luci-app-projectx*.ipk" -o \
+            -name "luci-app-aw1k-led*.ipk" \
+          \) -exec cp -f {} output/ \;
 
           if [ -z "$(ls -A output/*.ipk 2>/dev/null)" ]; then
-            echo "No IPK files found!"
+            echo "No custom IPK files found!"
             exit 1
           fi
 
@@ -119,7 +107,7 @@ jobs:
       - name: Upload Artifact
         uses: actions/upload-artifact@v4
         with:
-          name: OpenWrt-24.10.6-IPK
+          name: OpenWrt-24.10.6-Custom-IPK
           path: output/*
 
       - name: Generate Release Tag
@@ -130,7 +118,7 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ env.TAG_NAME }}
-          name: OpenWrt SDK 24.10.6 Packages
+          name: OpenWrt SDK 24.10.6 Custom Packages
           generate_release_notes: true
           files: |
             output/*.ipk
