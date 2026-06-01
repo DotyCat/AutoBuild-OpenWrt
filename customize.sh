@@ -37,7 +37,7 @@ git clone --depth=1 https://github.com/DotyCat/luci-app-argon-config.git package
 git clone --depth=1 https://github.com/DotyCat/QModem.git package/qmodem
 git clone --depth=1 https://github.com/DotyCat/luci-app-modeminfo.git package/luci-app-modeminfo
 git clone --depth=1 https://github.com/DotyCat/luci-app-netstat.git package/luci-app-netstat
-git clone --depth=1 https://github.com/DotyCat/luci-app-xraycustom.git package/luci-app-projectx
+git clone --depth=1 https://github.com/DotyCat/luci-app-projectx.git package/luci-app-projectx
 git clone --depth=1 https://github.com/DotyCat/luci-app-aw1k-led.git package/luci-app-aw1k-led
 
 mkdir -p package/luci-app-passwall/luci-app-passwall/root/usr/share/passwall/rules
