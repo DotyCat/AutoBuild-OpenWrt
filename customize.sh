@@ -31,13 +31,13 @@ rm -rf feeds/packages/net/xray-plugin
 rm -rf feeds/packages/net/shadow-tls
 
 git clone --depth=1 https://github.com/DotyCat/passwall.git package/passwall
-git clone --depth=1 https://github.com/DotyCat/luci-theme-argon.git feeds/luci/themes/luci-theme-argon
-git clone --depth=1 https://github.com/DotyCat/luci-app-argon-config.git feeds/luci/applications/luci-app-argon-config
+git clone --depth=1 https://github.com/DotyCat/luci-theme-argon.git package/themes/luci-theme-argon
+git clone --depth=1 https://github.com/DotyCat/luci-app-argon-config.git package/themes/luci-app-argon-config
 
 git clone --depth=1 https://github.com/DotyCat/QModem.git package/qmodem
 git clone --depth=1 https://github.com/DotyCat/luci-app-modeminfo.git package/luci-app-modeminfo
 git clone --depth=1 https://github.com/DotyCat/luci-app-netstat.git package/luci-app-netstat
-git clone --depth=1 https://github.com/DotyCat/luci-app-xraycustom.git package/luci-app-xraycustom
+git clone --depth=1 https://github.com/DotyCat/luci-app-xraycustom.git package/luci-app-projectx
 git clone --depth=1 https://github.com/DotyCat/luci-app-aw1k-led.git package/luci-app-aw1k-led
 
 mkdir -p package/luci-app-passwall/luci-app-passwall/root/usr/share/passwall/rules
